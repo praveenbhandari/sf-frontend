@@ -6,6 +6,7 @@ import {
   apiErrorMessage,
   createContact,
   deleteContact,
+  fetchContactVCard,
   getContact,
   getHealth,
   listContacts,
@@ -24,13 +25,9 @@ const INPUT: ContactInput = {
   phone: null,
   company: null,
   job_title: null,
-  address: null,
-  city: null,
-  state: null,
-  postal_code: null,
-  country: null,
   photo: null,
   notes: null,
+  addresses: [],
 };
 
 describe("listContacts", () => {
@@ -103,6 +100,19 @@ describe("createContact", () => {
     );
 
     await expect(createContact(INPUT)).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("fetchContactVCard", () => {
+  it("returns the vCard body", async () => {
+    const res = await fetchContactVCard(1);
+    expect(res.ok).toBe(true);
+    expect(await res.text()).toContain("FN:Ada Lovelace");
+  });
+
+  it("returns 404 without throwing", async () => {
+    const res = await fetchContactVCard(4242);
+    expect(res.status).toBe(404);
   });
 });
 

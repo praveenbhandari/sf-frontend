@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { PHOTO_MAX_BYTES, PHOTO_MAX_CHARS, decodedPhotoBytes } from "./photo";
-import type { ContactInput } from "./types";
+import { ADDRESS_TYPES, type ContactInput } from "./types";
 
 /**
  * Client/server-shared validation for the contact form.
@@ -33,6 +33,26 @@ function requiredText(max: number, label: string) {
 const PHOTO_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 export { PHOTO_MAX_BYTES, PHOTO_MAX_CHARS } from "./photo";
 
+export const addressSchema = z.object({
+  type: z.enum(ADDRESS_TYPES, "Choose Home, Work, or Other"),
+  address: requiredText(300, "Street"),
+  city: optionalText(120, "City"),
+  state: optionalText(120, "State"),
+  postal_code: optionalText(20, "Postal code"),
+  country: optionalText(120, "Country"),
+});
+
+/** The form submits the address rows as one hidden JSON field. */
+function parseAddressesJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  if (!value.trim()) return [];
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 export const contactInputSchema = z.object({
   first_name: requiredText(100, "First name"),
   last_name: requiredText(100, "Last name"),
@@ -46,11 +66,6 @@ export const contactInputSchema = z.object({
   phone: optionalText(40, "Phone"),
   company: optionalText(200, "Company"),
   job_title: optionalText(200, "Job title"),
-  address: optionalText(300, "Address"),
-  city: optionalText(120, "City"),
-  state: optionalText(120, "State"),
-  postal_code: optionalText(20, "Postal code"),
-  country: optionalText(120, "Country"),
   photo: z
     .string()
     .trim()
@@ -72,6 +87,10 @@ export const contactInputSchema = z.object({
     .transform((value) => value || null)
     .nullable()
     .default(null),
+  addresses: z.preprocess(
+    parseAddressesJson,
+    z.array(addressSchema).max(10, "A contact can hold at most 10 addresses").default([]),
+  ),
 }) satisfies z.ZodType<ContactInput, unknown>;
 
 export type ContactFormValues = z.input<typeof contactInputSchema>;
@@ -94,8 +113,8 @@ export function zodFieldErrors(
 /* Form metadata — one source of truth for the fields and their limits */
 /* ------------------------------------------------------------------ */
 
-/** Fields rendered as a plain `Field` control (photo has custom UI). */
-export type ContactFieldName = Exclude<keyof ContactInput, "photo">;
+/** Fields rendered as a plain `Field` control (photo and addresses have custom UI). */
+export type ContactFieldName = Exclude<keyof ContactInput, "photo" | "addresses">;
 
 export interface ContactFieldSpec {
   name: ContactFieldName;
@@ -176,48 +195,6 @@ export const CONTACT_FIELD_GROUPS: ContactFieldGroup[] = [
     ],
   },
   {
-    title: "Address",
-    description: "Optional postal details.",
-    fields: [
-      {
-        name: "address",
-        label: "Street address",
-        maxLength: 300,
-        placeholder: "1 Market St, Suite 400",
-        autoComplete: "street-address",
-        wide: true,
-      },
-      {
-        name: "city",
-        label: "City",
-        maxLength: 120,
-        placeholder: "San Francisco",
-        autoComplete: "address-level2",
-      },
-      {
-        name: "state",
-        label: "State / region",
-        maxLength: 120,
-        placeholder: "CA",
-        autoComplete: "address-level1",
-      },
-      {
-        name: "postal_code",
-        label: "Postal code",
-        maxLength: 20,
-        placeholder: "94105",
-        autoComplete: "postal-code",
-      },
-      {
-        name: "country",
-        label: "Country",
-        maxLength: 120,
-        placeholder: "USA",
-        autoComplete: "country-name",
-      },
-    ],
-  },
-  {
     title: "Notes",
     description: "Anything worth remembering. No length limit.",
     fields: [
@@ -238,7 +215,7 @@ export const CONTACT_FIELDS: ContactFieldSpec[] = CONTACT_FIELD_GROUPS.flatMap(
 );
 
 /** Fields carried by hidden inputs (custom UI) rather than a `Field` control. */
-const HIDDEN_FIELD_NAMES = ["photo"] as const;
+const HIDDEN_FIELD_NAMES = ["photo", "addresses"] as const;
 
 /** Pull the contact fields out of a submitted form, as raw strings. */
 export function formDataToValues(

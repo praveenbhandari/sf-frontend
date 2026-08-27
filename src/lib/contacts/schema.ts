@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PHOTO_MAX_BYTES, PHOTO_MAX_CHARS, decodedPhotoBytes } from "./photo";
 import type { ContactInput } from "./types";
 
 /**
@@ -30,10 +31,7 @@ function requiredText(max: number, label: string) {
 
 /** Mirrors the API's photo rules: PNG/JPEG/WebP data URL, ≤ 512 KB decoded. */
 const PHOTO_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
-const PHOTO_MAX_BYTES = 512 * 1024;
-const PHOTO_MAX_ENCODED_CHARS = Math.floor((PHOTO_MAX_BYTES + 2) / 3) * 4;
-const PHOTO_PREFIX_MAX_CHARS = "data:image/jpeg;base64,".length;
-export const PHOTO_MAX_CHARS = PHOTO_PREFIX_MAX_CHARS + PHOTO_MAX_ENCODED_CHARS;
+export { PHOTO_MAX_BYTES, PHOTO_MAX_CHARS } from "./photo";
 
 export const contactInputSchema = z.object({
   first_name: requiredText(100, "First name"),
@@ -61,11 +59,10 @@ export const contactInputSchema = z.object({
       (value) => !value || PHOTO_PREFIX.test(value),
       "Photo must be a PNG, JPEG, or WebP image",
     )
-    .refine((value) => {
-      if (!value) return true;
-      const encoded = value.slice(value.indexOf(",") + 1);
-      return encoded.length <= PHOTO_MAX_ENCODED_CHARS;
-    }, "Photo must be 512 KB or smaller")
+    .refine(
+      (value) => !value || decodedPhotoBytes(value) <= PHOTO_MAX_BYTES,
+      "Photo must be 512 KB or smaller",
+    )
     .transform((value) => value || null)
     .nullable()
     .default(null),

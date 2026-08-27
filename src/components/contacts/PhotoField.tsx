@@ -3,17 +3,10 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 import Button from "@/components/ui/Button";
+import { PHOTO_MAX_BYTES, decodedPhotoBytes } from "@/lib/contacts/photo";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_EDGE = 512;
-const MAX_DECODED_BYTES = 512 * 1024;
-
-/** Decoded byte count of a base64 data URL, accounting for `=` padding. */
-function decodedBytes(dataUrl: string): number {
-  const encoded = dataUrl.slice(dataUrl.indexOf(",") + 1);
-  const padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
-  return Math.floor((encoded.length * 3) / 4) - padding;
-}
 
 /** Downscale to at most 512px and re-encode as JPEG so uploads stay tiny. */
 async function fileToDataUrl(file: File): Promise<string> {
@@ -58,7 +51,7 @@ export default function PhotoField({ defaultValue = "" }: { defaultValue?: strin
     try {
       const dataUrl = await fileToDataUrl(file);
       if (latestSelection.current !== selection) return;
-      if (decodedBytes(dataUrl) > MAX_DECODED_BYTES) {
+      if (decodedPhotoBytes(dataUrl) > PHOTO_MAX_BYTES) {
         setError("That image is too large. Choose one under 512 KB.");
         return;
       }

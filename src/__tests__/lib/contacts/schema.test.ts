@@ -1,10 +1,17 @@
 import {
   CONTACT_FIELDS,
-  PHOTO_MAX_CHARS,
+  PHOTO_MAX_BYTES,
   contactInputSchema,
   formDataToValues,
   zodFieldErrors,
 } from "@/lib/contacts/schema";
+import { decodedPhotoBytes } from "@/lib/contacts/photo";
+
+function pngDataUrl(byteLength: number): string {
+  const bytes = Buffer.alloc(byteLength);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bytes);
+  return `data:image/png;base64,${bytes.toString("base64")}`;
+}
 
 function values(overrides: Record<string, string> = {}) {
   return {
@@ -87,10 +94,28 @@ describe("contactInputSchema", () => {
   });
 
   it("rejects a photo larger than the API's 512 KB decoded cap", () => {
-    const oversized = "data:image/png;base64," + "A".repeat(PHOTO_MAX_CHARS);
+    const oversized = pngDataUrl(PHOTO_MAX_BYTES + 1);
     const result = contactInputSchema.safeParse(values({ photo: oversized }));
 
+    expect(decodedPhotoBytes(oversized)).toBe(PHOTO_MAX_BYTES + 1);
     expect(zodFieldErrors(result.error!).photo).toBe(
+      "Photo must be 512 KB or smaller",
+    );
+  });
+
+  it("accepts a photo at the API's 512 KB decoded cap and rejects one byte over", () => {
+    const atCap = pngDataUrl(PHOTO_MAX_BYTES);
+    const overCap = pngDataUrl(PHOTO_MAX_BYTES + 1);
+
+    expect(decodedPhotoBytes(atCap)).toBe(PHOTO_MAX_BYTES);
+    expect(decodedPhotoBytes(overCap)).toBe(PHOTO_MAX_BYTES + 1);
+    // Same encoded length, so a character-count check cannot tell these apart.
+    expect(atCap.slice(atCap.indexOf(",") + 1).length).toBe(
+      overCap.slice(overCap.indexOf(",") + 1).length,
+    );
+
+    expect(contactInputSchema.parse(values({ photo: atCap })).photo).toBe(atCap);
+    expect(zodFieldErrors(contactInputSchema.safeParse(values({ photo: overCap })).error!).photo).toBe(
       "Photo must be 512 KB or smaller",
     );
   });

@@ -13,12 +13,9 @@ function values(overrides: Record<string, string> = {}) {
     phone: "",
     company: "",
     job_title: "",
-    address: "",
-    city: "",
-    state: "",
-    postal_code: "",
-    country: "",
+    photo: "",
     notes: "",
+    addresses: "[]",
     ...overrides,
   };
 }
@@ -58,13 +55,55 @@ describe("contactInputSchema", () => {
 
   it("enforces the API's length limits", () => {
     const result = contactInputSchema.safeParse(
-      values({ first_name: "a".repeat(101), postal_code: "9".repeat(21) }),
+      values({ first_name: "a".repeat(101), company: "b".repeat(201) }),
     );
 
     expect(zodFieldErrors(result.error!)).toEqual({
       first_name: "First name must be 100 characters or fewer",
-      postal_code: "Postal code must be 20 characters or fewer",
+      company: "Company must be 200 characters or fewer",
     });
+  });
+
+  it("accepts a supported photo data URL and nulls a blank one", () => {
+    const photo = "data:image/png;base64,iVBORw0KGgo=";
+
+    expect(contactInputSchema.parse(values({ photo })).photo).toBe(photo);
+    expect(contactInputSchema.parse(values()).photo).toBeNull();
+  });
+
+  it("rejects a photo that is not a supported image data URL", () => {
+    const result = contactInputSchema.safeParse(
+      values({ photo: "data:image/gif;base64,R0lGODlh" }),
+    );
+
+    expect(zodFieldErrors(result.error!).photo).toBe(
+      "Photo must be a PNG, JPEG, or WebP image",
+    );
+  });
+
+  it("parses the addresses JSON the form submits", () => {
+    const addresses = JSON.stringify([
+      { type: "Work", street: "1 Market St", city: "San Francisco" },
+    ]);
+
+    expect(contactInputSchema.parse(values({ addresses })).addresses).toEqual([
+      {
+        type: "Work",
+        street: "1 Market St",
+        city: "San Francisco",
+        state: null,
+        postal_code: null,
+        country: null,
+      },
+    ]);
+  });
+
+  it("rejects an address type the API does not accept", () => {
+    const result = contactInputSchema.safeParse(
+      values({ addresses: JSON.stringify([{ type: "Office" }]) }),
+    );
+
+    expect(result.success).toBe(false);
   });
 });
 
@@ -80,7 +119,7 @@ describe("formDataToValues", () => {
     expect(extracted.first_name).toBe("Grace");
     expect(extracted.last_name).toBe("");
     expect(Object.keys(extracted).sort()).toEqual(
-      CONTACT_FIELDS.map((field) => field.name).sort(),
+      [...CONTACT_FIELDS.map((field) => field.name), "photo", "addresses"].sort(),
     );
   });
 });

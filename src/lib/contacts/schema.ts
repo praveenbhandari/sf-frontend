@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ContactInput } from "./types";
+import { ADDRESS_TYPES, type ContactInput } from "./types";
 
 /**
  * Client/server-shared validation for the contact form.
@@ -28,6 +28,30 @@ function requiredText(max: number, label: string) {
     .max(max, `${label} must be ${max} characters or fewer`);
 }
 
+/** Mirrors the API's photo rules: PNG/JPEG/WebP data URL, ≤ 2 MB decoded. */
+const PHOTO_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
+export const PHOTO_MAX_CHARS = 2_800_000;
+
+export const addressSchema = z.object({
+  type: z.enum(ADDRESS_TYPES, "Choose Home, Work, or Other"),
+  street: optionalText(300, "Street"),
+  city: optionalText(120, "City"),
+  state: optionalText(120, "State"),
+  postal_code: optionalText(20, "Postal code"),
+  country: optionalText(120, "Country"),
+});
+
+/** The form submits the address rows as one hidden JSON field. */
+function parseAddressesJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  if (!value.trim()) return [];
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 export const contactInputSchema = z.object({
   first_name: requiredText(100, "First name"),
   last_name: requiredText(100, "Last name"),
@@ -41,17 +65,30 @@ export const contactInputSchema = z.object({
   phone: optionalText(40, "Phone"),
   company: optionalText(200, "Company"),
   job_title: optionalText(200, "Job title"),
-  address: optionalText(300, "Address"),
-  city: optionalText(120, "City"),
-  state: optionalText(120, "State"),
-  postal_code: optionalText(20, "Postal code"),
-  country: optionalText(120, "Country"),
+  photo: z
+    .string()
+    .trim()
+    .max(PHOTO_MAX_CHARS, "Photo must be 2 MB or smaller")
+    .refine(
+      (value) => !value || PHOTO_PREFIX.test(value),
+      "Photo must be a PNG, JPEG, or WebP image",
+    )
+    .transform((value) => value || null)
+    .nullable()
+    .default(null),
   notes: z
     .string()
     .trim()
     .transform((value) => value || null)
     .nullable()
     .default(null),
+  addresses: z.preprocess(
+    parseAddressesJson,
+    z
+      .array(addressSchema)
+      .max(20, "A contact can hold at most 20 addresses")
+      .default([]),
+  ),
 }) satisfies z.ZodType<ContactInput, unknown>;
 
 export type ContactFormValues = z.input<typeof contactInputSchema>;
@@ -74,8 +111,11 @@ export function zodFieldErrors(
 /* Form metadata — one source of truth for the fields and their limits */
 /* ------------------------------------------------------------------ */
 
+/** Fields rendered as a plain `Field` control (photo and addresses have custom UI). */
+export type ContactFieldName = Exclude<keyof ContactInput, "photo" | "addresses">;
+
 export interface ContactFieldSpec {
-  name: keyof ContactInput;
+  name: ContactFieldName;
   label: string;
   type?: "text" | "email" | "tel" | "textarea";
   required?: boolean;
@@ -153,48 +193,6 @@ export const CONTACT_FIELD_GROUPS: ContactFieldGroup[] = [
     ],
   },
   {
-    title: "Address",
-    description: "Optional postal details.",
-    fields: [
-      {
-        name: "address",
-        label: "Street address",
-        maxLength: 300,
-        placeholder: "1 Market St, Suite 400",
-        autoComplete: "street-address",
-        wide: true,
-      },
-      {
-        name: "city",
-        label: "City",
-        maxLength: 120,
-        placeholder: "San Francisco",
-        autoComplete: "address-level2",
-      },
-      {
-        name: "state",
-        label: "State / region",
-        maxLength: 120,
-        placeholder: "CA",
-        autoComplete: "address-level1",
-      },
-      {
-        name: "postal_code",
-        label: "Postal code",
-        maxLength: 20,
-        placeholder: "94105",
-        autoComplete: "postal-code",
-      },
-      {
-        name: "country",
-        label: "Country",
-        maxLength: 120,
-        placeholder: "USA",
-        autoComplete: "country-name",
-      },
-    ],
-  },
-  {
     title: "Notes",
     description: "Anything worth remembering. No length limit.",
     fields: [
@@ -214,14 +212,18 @@ export const CONTACT_FIELDS: ContactFieldSpec[] = CONTACT_FIELD_GROUPS.flatMap(
   (group) => group.fields,
 );
 
+/** Fields carried by hidden inputs (custom UI) rather than a `Field` control. */
+const HIDDEN_FIELD_NAMES = ["photo", "addresses"] as const;
+
 /** Pull the contact fields out of a submitted form, as raw strings. */
 export function formDataToValues(
   formData: FormData,
 ): Record<keyof ContactInput, string> {
+  const names = [
+    ...CONTACT_FIELDS.map((field) => field.name),
+    ...HIDDEN_FIELD_NAMES,
+  ];
   return Object.fromEntries(
-    CONTACT_FIELDS.map((field) => [
-      field.name,
-      String(formData.get(field.name) ?? ""),
-    ]),
+    names.map((name) => [name, String(formData.get(name) ?? "")]),
   ) as Record<keyof ContactInput, string>;
 }

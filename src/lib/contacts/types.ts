@@ -3,6 +3,24 @@
  * Field names stay snake_case so payloads map 1:1 onto the wire format.
  */
 
+/** Address kinds the API accepts, in the order the UI shows them. */
+export const ADDRESS_TYPES = ["Home", "Work", "Other"] as const;
+export type AddressType = (typeof ADDRESS_TYPES)[number];
+
+/** `AddressRead` — a stored address, as returned inside a contact. */
+export interface Address {
+  id: number;
+  type: AddressType;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string | null;
+}
+
+/** `AddressCreate` — one address inside a contact request body. */
+export type AddressInput = Omit<Address, "id">;
+
 /** `ContactRead` — a stored contact, as returned by every contact endpoint. */
 export interface Contact {
   id: number;
@@ -12,12 +30,9 @@ export interface Contact {
   phone: string | null;
   company: string | null;
   job_title: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  postal_code: string | null;
-  country: string | null;
+  photo: string | null;
   notes: string | null;
+  addresses: Address[];
   created_at: string;
   updated_at: string;
   full_name: string;
@@ -26,8 +41,8 @@ export interface Contact {
 /** Every editable field, i.e. `ContactCreate` / `ContactReplace`. */
 export type ContactInput = Omit<
   Contact,
-  "id" | "created_at" | "updated_at" | "full_name"
->;
+  "id" | "created_at" | "updated_at" | "full_name" | "addresses"
+> & { addresses: AddressInput[] };
 
 /** `ContactPage` — one page of contacts plus the totals needed to paginate. */
 export interface ContactPage {

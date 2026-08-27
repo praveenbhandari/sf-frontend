@@ -6,11 +6,13 @@ import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Field from "@/components/ui/Field";
 import Button, { buttonClasses } from "@/components/ui/Button";
-import { CONTACT_FIELD_GROUPS } from "@/lib/contacts/schema";
+import AddressListField from "@/components/contacts/AddressListField";
+import PhotoField from "@/components/contacts/PhotoField";
+import { CONTACT_FIELD_GROUPS, type ContactFieldName } from "@/lib/contacts/schema";
 import {
   EMPTY_FORM_STATE,
+  type AddressInput,
   type Contact,
-  type ContactInput,
   type FormState,
 } from "@/lib/contacts/types";
 
@@ -50,8 +52,20 @@ export default function ContactForm({
 }) {
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
 
-  function valueFor(name: keyof ContactInput): string {
+  function valueFor(name: ContactFieldName): string {
     return state.values?.[name] ?? contact?.[name] ?? "";
+  }
+
+  function addressSeed(): AddressInput[] {
+    const echoed = state.values?.addresses;
+    if (echoed) {
+      try {
+        return JSON.parse(echoed) as AddressInput[];
+      } catch {
+        return [];
+      }
+    }
+    return contact?.addresses ?? [];
   }
 
   return (
@@ -68,6 +82,15 @@ export default function ContactForm({
           />
           <span>{state.message}</span>
         </div>
+      ) : null}
+
+      <PhotoField
+        defaultValue={state.values?.photo ?? contact?.photo ?? ""}
+      />
+      {state.fieldErrors?.photo ? (
+        <p role="alert" className="text-[13px] text-destructive">
+          {state.fieldErrors.photo}
+        </p>
       ) : null}
 
       {CONTACT_FIELD_GROUPS.map((group) => (
@@ -95,6 +118,26 @@ export default function ContactForm({
           </div>
         </fieldset>
       ))}
+
+      <fieldset className="space-y-4">
+        <legend className="sr-only">Addresses</legend>
+
+        <div className="border-b border-hairline pb-2">
+          <h2 className="font-display text-sm font-semibold text-foreground">
+            Addresses
+          </h2>
+          <p className="text-[13px] text-muted-foreground">
+            Home, work, and other postal addresses.
+          </p>
+        </div>
+
+        <AddressListField defaultValue={addressSeed()} />
+        {state.fieldErrors?.addresses ? (
+          <p role="alert" className="text-[13px] text-destructive">
+            {state.fieldErrors.addresses}
+          </p>
+        ) : null}
+      </fieldset>
 
       <div className="flex items-center gap-2 border-t border-hairline pt-4">
         <SubmitButton label={submitLabel} />

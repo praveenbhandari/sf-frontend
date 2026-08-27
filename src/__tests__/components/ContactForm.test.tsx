@@ -33,7 +33,8 @@ describe("ContactForm", () => {
     expect(screen.getByLabelText(/first name/i)).toHaveValue("Ada");
     expect(screen.getByLabelText(/^email/i)).toHaveValue("ada@example.com");
     // Nulls become empty inputs rather than the string "null".
-    expect(screen.getByLabelText(/street address/i)).toHaveValue("");
+    expect(screen.getByLabelText(/phone/i)).toHaveValue("+1-415-555-0101");
+    expect(screen.getByLabelText(/company/i)).toHaveValue("Analytical Engines");
   });
 
   it("submits the entered values to the action", async () => {

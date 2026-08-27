@@ -65,6 +65,14 @@ export default function ContactsTable({
                           {subtitle}
                         </span>
                       ) : null}
+                      {contact.addresses.length > 0 ? (
+                        <span className="mt-0.5 inline-block rounded-full bg-secondary/60 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                          {contact.addresses.length}{" "}
+                          {contact.addresses.length === 1
+                            ? "address"
+                            : "addresses"}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </td>

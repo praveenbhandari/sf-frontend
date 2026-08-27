@@ -35,6 +35,11 @@ describe("GET /contacts/[id]/vcard", () => {
     expect(res.status).toBe(404);
   });
 
+  it("rejects a numeric prefix that is not a whole id", async () => {
+    await expect(call("1abc")).resolves.toMatchObject({ status: 404 });
+    await expect(call("1.5")).resolves.toMatchObject({ status: 404 });
+  });
+
   it("defaults Content-Disposition when the API omits it", async () => {
     server.use(
       http.get(api("/api/v1/contacts/:id/vcard"), () =>

@@ -3,8 +3,9 @@ import { ApiUnreachableError } from "@/lib/apiClient";
 import { fetchContactVCard } from "@/lib/contacts/api";
 
 function parseId(raw: string): number | null {
-  const id = Number.parseInt(raw, 10);
-  if (!Number.isInteger(id) || id < 1) return null;
+  if (!/^[1-9]\d*$/.test(raw)) return null;
+  const id = Number(raw);
+  if (!Number.isSafeInteger(id)) return null;
   return id;
 }
 

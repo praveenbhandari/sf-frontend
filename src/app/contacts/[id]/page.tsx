@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Pencil } from "lucide-react";
 import ContactAvatar from "@/components/contacts/ContactAvatar";
 import DeleteContactButton from "@/components/contacts/DeleteContactButton";
+import DownloadVCardButton from "@/components/contacts/DownloadVCardButton";
 import { buttonClasses } from "@/components/ui/Button";
 import { getContact } from "@/lib/contacts/api";
 import { addressLine, formatTimestamp, jobLine } from "@/lib/contacts/format";
@@ -80,6 +81,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
             <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Edit
           </Link>
+          <DownloadVCardButton contactId={contact.id} />
           <DeleteContactButton
             contactId={contact.id}
             contactName={contact.full_name}

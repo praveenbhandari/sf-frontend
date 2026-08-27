@@ -93,6 +93,14 @@ export async function deleteContact(id: number): Promise<void> {
   }
 }
 
+/** Raw vCard response from FastAPI — used by the Next.js download route only. */
+export async function fetchContactVCard(id: number): Promise<Response> {
+  return apiFetch(`${CONTACTS_PATH}/${id}/vcard`, {
+    cache: "no-store",
+    headers: { Accept: "text/vcard" },
+  });
+}
+
 export async function getHealth(): Promise<HealthResponse | null> {
   try {
     // The badge is decoration; never let it hold the page open for long.

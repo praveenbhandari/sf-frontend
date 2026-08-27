@@ -17,6 +17,7 @@ export interface Contact {
   state: string | null;
   postal_code: string | null;
   country: string | null;
+  photo: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

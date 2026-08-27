@@ -28,6 +28,10 @@ function requiredText(max: number, label: string) {
     .max(max, `${label} must be ${max} characters or fewer`);
 }
 
+/** Mirrors the API's photo rules: PNG/JPEG/WebP data URL, ≤ 2 MB decoded. */
+const PHOTO_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
+export const PHOTO_MAX_CHARS = 2_800_000;
+
 export const contactInputSchema = z.object({
   first_name: requiredText(100, "First name"),
   last_name: requiredText(100, "Last name"),
@@ -46,6 +50,17 @@ export const contactInputSchema = z.object({
   state: optionalText(120, "State"),
   postal_code: optionalText(20, "Postal code"),
   country: optionalText(120, "Country"),
+  photo: z
+    .string()
+    .trim()
+    .max(PHOTO_MAX_CHARS, "Photo must be 2 MB or smaller")
+    .refine(
+      (value) => !value || PHOTO_PREFIX.test(value),
+      "Photo must be a PNG, JPEG, or WebP image",
+    )
+    .transform((value) => value || null)
+    .nullable()
+    .default(null),
   notes: z
     .string()
     .trim()
@@ -74,8 +89,11 @@ export function zodFieldErrors(
 /* Form metadata — one source of truth for the fields and their limits */
 /* ------------------------------------------------------------------ */
 
+/** Fields rendered as a plain `Field` control (photo has custom UI). */
+export type ContactFieldName = Exclude<keyof ContactInput, "photo">;
+
 export interface ContactFieldSpec {
-  name: keyof ContactInput;
+  name: ContactFieldName;
   label: string;
   type?: "text" | "email" | "tel" | "textarea";
   required?: boolean;
@@ -214,14 +232,18 @@ export const CONTACT_FIELDS: ContactFieldSpec[] = CONTACT_FIELD_GROUPS.flatMap(
   (group) => group.fields,
 );
 
+/** Fields carried by hidden inputs (custom UI) rather than a `Field` control. */
+const HIDDEN_FIELD_NAMES = ["photo"] as const;
+
 /** Pull the contact fields out of a submitted form, as raw strings. */
 export function formDataToValues(
   formData: FormData,
 ): Record<keyof ContactInput, string> {
+  const names = [
+    ...CONTACT_FIELDS.map((field) => field.name),
+    ...HIDDEN_FIELD_NAMES,
+  ];
   return Object.fromEntries(
-    CONTACT_FIELDS.map((field) => [
-      field.name,
-      String(formData.get(field.name) ?? ""),
-    ]),
+    names.map((name) => [name, String(formData.get(name) ?? "")]),
   ) as Record<keyof ContactInput, string>;
 }

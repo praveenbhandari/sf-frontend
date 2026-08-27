@@ -1,5 +1,6 @@
 import {
   CONTACT_FIELDS,
+  PHOTO_MAX_CHARS,
   contactInputSchema,
   formDataToValues,
   zodFieldErrors,
@@ -82,6 +83,15 @@ describe("contactInputSchema", () => {
 
     expect(zodFieldErrors(result.error!).photo).toBe(
       "Photo must be a PNG, JPEG, or WebP image",
+    );
+  });
+
+  it("rejects a photo larger than the API's 512 KB decoded cap", () => {
+    const oversized = "data:image/png;base64," + "A".repeat(PHOTO_MAX_CHARS);
+    const result = contactInputSchema.safeParse(values({ photo: oversized }));
+
+    expect(zodFieldErrors(result.error!).photo).toBe(
+      "Photo must be 512 KB or smaller",
     );
   });
 });

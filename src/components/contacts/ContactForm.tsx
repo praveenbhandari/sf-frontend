@@ -19,12 +19,13 @@ export type ContactFormAction = (
   formData: FormData,
 ) => Promise<FormState>;
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, busy }: { label: string; busy?: boolean }) {
   const { pending } = useFormStatus();
+  const disabled = pending || busy;
 
   return (
-    <Button type="submit" disabled={pending}>
-      {pending ? (
+    <Button type="submit" disabled={disabled}>
+      {disabled ? (
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       ) : null}
       {pending ? "Saving…" : label}

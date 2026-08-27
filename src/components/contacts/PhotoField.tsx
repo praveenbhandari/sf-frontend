@@ -6,6 +6,14 @@ import Button from "@/components/ui/Button";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_EDGE = 512;
+const MAX_DECODED_BYTES = 512 * 1024;
+
+/** Decoded byte count of a base64 data URL, accounting for `=` padding. */
+function decodedBytes(dataUrl: string): number {
+  const encoded = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  const padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
+  return Math.floor((encoded.length * 3) / 4) - padding;
+}
 
 /** Downscale to at most 512px and re-encode as JPEG so uploads stay tiny. */
 async function fileToDataUrl(file: File): Promise<string> {
@@ -29,7 +37,10 @@ async function fileToDataUrl(file: File): Promise<string> {
 export default function PhotoField({ defaultValue = "" }: { defaultValue?: string }) {
   const [photo, setPhoto] = useState(defaultValue);
   const [error, setError] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Only the newest selection may apply its result; earlier ones are stale.
+  const latestSelection = useRef(0);
 
   async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -40,17 +51,33 @@ export default function PhotoField({ defaultValue = "" }: { defaultValue?: strin
       return;
     }
 
+    const selection = latestSelection.current + 1;
+    latestSelection.current = selection;
+    setConverting(true);
+
     try {
-      setPhoto(await fileToDataUrl(file));
+      const dataUrl = await fileToDataUrl(file);
+      if (latestSelection.current !== selection) return;
+      if (decodedBytes(dataUrl) > MAX_DECODED_BYTES) {
+        setError("That image is too large. Choose one under 512 KB.");
+        return;
+      }
+      setPhoto(dataUrl);
       setError(null);
     } catch {
-      setError("That file could not be read as an image.");
+      if (latestSelection.current === selection) {
+        setError("That file could not be read as an image.");
+      }
+    } finally {
+      if (latestSelection.current === selection) setConverting(false);
     }
   }
 
   function removePhoto() {
+    latestSelection.current += 1;
     setPhoto("");
     setError(null);
+    setConverting(false);
     if (fileInput.current) fileInput.current.value = "";
   }
 
@@ -90,6 +117,11 @@ export default function PhotoField({ defaultValue = "" }: { defaultValue?: strin
               <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Remove
             </Button>
+          ) : null}
+          {converting ? (
+            <span role="status" className="text-[13px] text-muted-foreground">
+              Preparing photo…
+            </span>
           ) : null}
         </div>
       </div>

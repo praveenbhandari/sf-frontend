@@ -54,6 +54,20 @@ describe("ContactForm", () => {
     expect(formData.get("email")).toBe("grace@example.com");
   });
 
+  it("keeps an existing photo when the edit form is submitted untouched", async () => {
+    const photo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
+    const action = jest.fn<Promise<FormState>, [FormState, FormData]>(
+      async () => ({ status: "idle" }),
+    );
+    renderForm(action, makeContact({ photo }));
+
+    await userEvent.click(screen.getByRole("button", { name: /create contact/i }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+
+    expect(action.mock.calls[0][1].get("photo")).toBe(photo);
+  });
+
   it("shows the summary and the per-field errors the action returns", async () => {
     const action = jest.fn(
       async (): Promise<FormState> => ({

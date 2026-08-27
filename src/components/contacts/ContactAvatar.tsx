@@ -8,14 +8,25 @@ const SIZES = {
   lg: "h-14 w-14 text-lg",
 } as const;
 
-/** Initials bubble, tinted with a hue derived from the contact's email. */
+/** The contact's photo when set, else an initials bubble tinted per email. */
 export default function ContactAvatar({
   contact,
   size = "md",
 }: {
-  contact: Pick<Contact, "first_name" | "last_name" | "email">;
+  contact: Pick<Contact, "first_name" | "last_name" | "email" | "photo">;
   size?: keyof typeof SIZES;
 }) {
+  if (contact.photo) {
+    return (
+      <img
+        src={contact.photo}
+        alt=""
+        aria-hidden="true"
+        className={`inline-block shrink-0 select-none rounded-full object-cover ${SIZES[size]}`}
+      />
+    );
+  }
+
   const style = {
     "--avatar-hue": avatarHue(contact.email),
   } as CSSProperties;

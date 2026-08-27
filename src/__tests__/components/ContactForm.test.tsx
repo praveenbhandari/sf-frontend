@@ -3,7 +3,20 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ContactForm from "@/components/contacts/ContactForm";
 import { makeContact } from "../mocks/handlers";
-import type { FormState } from "@/lib/contacts/types";
+import type { Address, FormState } from "@/lib/contacts/types";
+
+function makeAddress(overrides: Partial<Address> = {}): Address {
+  return {
+    id: 1,
+    type: "Home",
+    address: "1 Market St",
+    city: "San Francisco",
+    state: "CA",
+    postal_code: "94105",
+    country: "USA",
+    ...overrides,
+  };
+}
 
 function renderForm(action: jest.Mock, contact?: ReturnType<typeof makeContact>) {
   return render(
@@ -91,6 +104,56 @@ describe("ContactForm", () => {
       "aria-invalid",
       "true",
     );
+  });
+
+  it("replaces the address rows when the edited contact changes", () => {
+    const ada = makeContact({
+      addresses: [makeAddress({ address: "1 Market St" })],
+    });
+    const grace = makeContact({
+      id: 2,
+      first_name: "Grace",
+      last_name: "Hopper",
+      addresses: [makeAddress({ id: 2, address: "9 Navy Yard" })],
+    });
+
+    const { rerender } = renderForm(jest.fn(), ada);
+    expect(screen.getByLabelText(/street/i)).toHaveValue("1 Market St");
+
+    rerender(
+      <ContactForm
+        action={jest.fn() as never}
+        contact={grace}
+        submitLabel="Create contact"
+        cancelHref="/contacts"
+      />,
+    );
+
+    expect(screen.getByLabelText(/street/i)).toHaveValue("9 Navy Yard");
+  });
+
+  it("keeps address edits when the same contact fails validation", async () => {
+    const contact = makeContact({
+      addresses: [makeAddress({ address: "1 Market St" })],
+    });
+    const action = jest.fn(
+      async (): Promise<FormState> => ({
+        status: "error",
+        message: "That email address is already taken.",
+        fieldErrors: { email: "This email is already in use." },
+      }),
+    );
+    renderForm(action, contact);
+
+    const street = screen.getByLabelText(/street/i);
+    await userEvent.clear(street);
+    await userEvent.type(street, "500 Terry Ave");
+    await userEvent.click(screen.getByRole("button", { name: /create contact/i }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    await screen.findByText("That email address is already taken.");
+
+    expect(screen.getByLabelText(/street/i)).toHaveValue("500 Terry Ave");
   });
 
   it("links back out without submitting", () => {

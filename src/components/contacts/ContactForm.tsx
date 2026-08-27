@@ -132,7 +132,12 @@ export default function ContactForm({
           </p>
         </div>
 
-        <AddressListField defaultValue={addressSeed()} />
+        {/* Keyed by contact so switching contacts remounts the editor with the
+            new seed, while a validation-error re-render keeps local row edits. */}
+        <AddressListField
+          key={contact?.id ?? "new"}
+          defaultValue={addressSeed()}
+        />
         {state.fieldErrors?.addresses ? (
           <p role="alert" className="text-[13px] text-destructive">
             {state.fieldErrors.addresses}
